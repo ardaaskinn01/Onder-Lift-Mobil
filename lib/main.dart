@@ -11,6 +11,8 @@ import 'package:onderliftmobil/pages/hata.dart';
 import 'package:onderliftmobil/pages/belge.dart';
 import 'package:onderliftmobil/pages/profil.dart';
 import 'package:onderliftmobil/pages/ayarlar.dart';
+import 'package:onderliftmobil/pages/makineler.dart';
+import 'package:onderliftmobil/pages/incele.dart';
 
 void main() async{
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,6 +41,8 @@ class MyApp extends StatelessWidget {
         '/belge': (context) => BelgeScreen(),
         '/profil': (context) => ProfilScreen(),
         '/ayar': (context) => AyarlarScreen(),
+        '/makineler': (context) => MakinelerScreen(),
+        '/incele': (context) => InceleScreen(),
       },
     );
   }

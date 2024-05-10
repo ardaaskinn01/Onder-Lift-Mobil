@@ -88,7 +88,10 @@ class _CustomPopupState extends State<CustomPopup> {
                       .text) // Makine adını belge adı olarak kullan
                   .set({
                 'id': _machineIdController.text,
-                'tur': _selectedMachineType,
+                'name': _machineNameController.text,
+                'type': _selectedMachineType,
+                'createdAt': FieldValue
+                    .serverTimestamp(), // Belge eklenme zamanını temsil eden bir tarih-saat değeri ekleyin
               });
               // Pop-up'ı kapat
               Navigator.of(context).pop();
@@ -170,73 +173,94 @@ class _AnaSayfaState extends State<AnaSayfa> {
               children: [
                 Align(
                   alignment: Alignment.center,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      StreamBuilder(
-                        stream: FirebaseFirestore.instance
-                            .collection('Users')
-                            .doc(_username) // Kullanıcının oturum açmış olduğu kullanıcı adı
-                            .collection('Makineler')
-                            .snapshots(),
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return CircularProgressIndicator(); // Veriler yüklenirken gösterilecek işaretçi
-                          }
-                          if (!snapshot.hasData) {
-                            return Text('Veri bulunamadı'); // Veri yoksa gösterilecek metin
-                          }
-                          var machines = snapshot.data?.docs;
-                          return DataTable(
-                            columns: [
-                              DataColumn(label: Text('ID')),
-                              DataColumn(label: Text('Name')),
-                              DataColumn(label: Text('Type')),
-                              DataColumn(label: Text('Inspect')),
-                              DataColumn(label: Text('Delete')),
-                            ],
-                            rows: machines!.map((machine) {
-                              return DataRow(cells: [
-                                DataCell(
-                                  Text(
-                                    machine['id'],
-                                    textAlign: TextAlign.center,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        StreamBuilder(
+                          stream: FirebaseFirestore.instance
+                              .collection('Users')
+                              .doc(_username)
+                              .collection('Makineler')
+                              .orderBy("createdAt", descending: true)
+                              .limit(5)
+                              .snapshots(),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return CircularProgressIndicator();
+                            }
+                            if (!snapshot.hasData) {
+                              return Text('Veri bulunamadı');
+                            }
+                            var machines = snapshot.data?.docs;
+                            return DataTable(
+                              columnSpacing: 30,
+                              columns: [
+                                DataColumn(label: Text('   ID')),
+                                DataColumn(label: Text('İsim')),
+                                DataColumn(label: Text('Tür')),
+                                DataColumn(label: Text(' İncele')),
+                                DataColumn(label: Text('    Sil')),
+                              ],
+                              rows: machines!.map((machine) {
+                                return DataRow(cells: [
+                                  DataCell(
+                                    Text(
+                                      machine['id'],
+                                      textAlign: TextAlign.center,
+                                    ),
                                   ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    machine['name'],
-                                    textAlign: TextAlign.center,
+                                  DataCell(
+                                    Text(
+                                      machine['name'],
+                                      textAlign: TextAlign.center,
+                                    ),
                                   ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    machine['type'],
-                                    textAlign: TextAlign.center,
+                                  DataCell(
+                                    Text(
+                                      machine['type'],
+                                      textAlign: TextAlign.center,
+                                    ),
                                   ),
-                                ),
-                                DataCell(
-                                  IconButton(
-                                    icon: Icon(Icons.visibility),
-                                    onPressed: () {
-                                      // İnceleme işlemi
-                                    },
+                                  DataCell(
+                                    IconButton(
+                                      icon: Icon(Icons.visibility, color: Color(0xFF222F5A)),
+                                      onPressed: () {
+                                        // İnceleme işlemi
+                                      },
+                                    ),
                                   ),
-                                ),
-                                DataCell(
-                                  IconButton(
-                                    icon: Icon(Icons.delete),
-                                    onPressed: () {
-                                      // Silme işlemi
-                                    },
+                                  DataCell(
+                                    IconButton(
+                                      icon: Icon(Icons.delete, color: Color(0xFFBE1522)),
+                                      onPressed: () {
+                                        // Firestore'dan belgeyi silme
+                                        var machineIdToDelete = machine['id']; // Silinecek makinenin ID'si
+                                        FirebaseFirestore.instance
+                                            .collection('Users')
+                                            .doc(_username)
+                                            .collection('Makineler')
+                                            .where('id', isEqualTo: machineIdToDelete)
+                                            .get()
+                                            .then((querySnapshot) {
+                                          querySnapshot.docs.forEach((doc) {
+                                            doc.reference.delete();
+                                            print('Belge başarıyla silindi.');
+                                          });
+                                        }).catchError((error) {
+                                          print('Hata oluştu: $error');
+                                        });
+                                      },
+                                    ),
                                   ),
-                                ),
-                              ]);
-                            }).toList(),
-                          );
-                        },
-                      ),
-                    ],
+                                ]);
+                              }).toList(),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 Align(
@@ -264,6 +288,29 @@ class _AnaSayfaState extends State<AnaSayfa> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+                Align(
+                  alignment: Alignment(0, -0.44), // Y ekseninde 0.5 yerine 0 kullanıyoruz
+                  child: Stack(
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.save),
+                        onPressed: () {
+                          Navigator.pushNamed(context, "/makineler"); // Özelleştirilmiş pop-up gösterilsin
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                Align(
+                  alignment: Alignment(0, -0.28),
+                  child: Text(
+                    'Kayıtlı Makineler',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -314,15 +361,14 @@ class _AnaSayfaState extends State<AnaSayfa> {
                     Text(
                       'Profil',
                       style: TextStyle(
-                        color: Color(0xFF222F5A), // Yazı rengi mavi
-                        fontSize: 18, // Yazı boyutu 16
-                        fontFamily: 'Roboto', // Yazı fontu Roboto
-                        fontWeight: FontWeight.w400, // Yazı kalınlığı normal
+                        color: Colors.black, // Yazı rengi mavi
+                        fontSize: 16, // Yazı boyutu 16
+                        fontFamily: 'Roboto',
+                        fontWeight: FontWeight.w300, // Yazı kalınlığı normal
                       ),
                     ),
                     Icon(Icons.arrow_forward_ios,
-                        color: Color(0xFFBE1522),
-                        size: 18), // Sağa yaslanmış ok
+                        color: Colors.black, size: 14), // Sağa yaslanmış ok
                   ],
                 ),
                 onTap: () {
@@ -338,15 +384,14 @@ class _AnaSayfaState extends State<AnaSayfa> {
                     Text(
                       'Bakım Geçmişi',
                       style: TextStyle(
-                        color: Color(0xFF222F5A), // Yazı rengi mavi
-                        fontSize: 18, // Yazı boyutu 16
+                        color: Colors.black, // Yazı rengi mavi
+                        fontSize: 16, // Yazı boyutu 16
                         fontFamily: 'Roboto', // Yazı fontu Roboto
-                        fontWeight: FontWeight.w400, // Yazı kalınlığı kalın
+                        fontWeight: FontWeight.w300, // Yazı kalınlığı kalın
                       ),
                     ),
                     Icon(Icons.arrow_forward_ios,
-                        color: Color(0xFFBE1522),
-                        size: 18), // Sağa yaslanmış ok
+                        color: Colors.black, size: 14), // Sağa yaslanmış ok
                   ],
                 ),
                 onTap: () {
@@ -362,15 +407,14 @@ class _AnaSayfaState extends State<AnaSayfa> {
                     Text(
                       'Hata Kayıtları',
                       style: TextStyle(
-                        color: Color(0xFF222F5A), // Yazı rengi mavi
-                        fontSize: 18, // Yazı boyutu 16
+                        color: Colors.black, // Yazı rengi mavi
+                        fontSize: 16, // Yazı boyutu 16
                         fontFamily: 'Roboto', // Yazı fontu Roboto
-                        fontWeight: FontWeight.w400, // Yazı kalınlığı kalın
+                        fontWeight: FontWeight.w300, // Yazı kalınlığı kalın
                       ),
                     ),
                     Icon(Icons.arrow_forward_ios,
-                        color: Color(0xFFBE1522),
-                        size: 18), // Sağa yaslanmış ok
+                        color: Colors.black, size: 14), // Sağa yaslanmış ok
                   ],
                 ),
                 onTap: () {
@@ -386,15 +430,14 @@ class _AnaSayfaState extends State<AnaSayfa> {
                     Text(
                       'Belgeler',
                       style: TextStyle(
-                        color: Color(0xFF222F5A), // Yazı rengi mavi
-                        fontSize: 18, // Yazı boyutu 16
+                        color: Colors.black, // Yazı rengi mavi
+                        fontSize: 16, // Yazı boyutu 16
                         fontFamily: 'Roboto', // Yazı fontu Roboto
-                        fontWeight: FontWeight.w400, // Yazı kalınlığı kalın
+                        fontWeight: FontWeight.w300, // Yazı kalınlığı kalın
                       ),
                     ),
                     Icon(Icons.arrow_forward_ios,
-                        color: Color(0xFFBE1522),
-                        size: 18), // Sağa yaslanmış ok
+                        color: Colors.black, size: 14), // Sağa yaslanmış ok
                   ],
                 ),
                 onTap: () {
@@ -410,15 +453,14 @@ class _AnaSayfaState extends State<AnaSayfa> {
                     Text(
                       'Ayarlar',
                       style: TextStyle(
-                        color: Color(0xFF222F5A), // Yazı rengi mavi
-                        fontSize: 18, // Yazı boyutu 16
+                        color: Colors.black, // Yazı rengi mavi
+                        fontSize: 16, // Yazı boyutu 16
                         fontFamily: 'Roboto', // Yazı fontu Roboto
-                        fontWeight: FontWeight.w400, // Yazı kalınlığı kalın
+                        fontWeight: FontWeight.w300, // Yazı kalınlığı kalın
                       ),
                     ),
                     Icon(Icons.arrow_forward_ios,
-                        color: Color(0xFFBE1522),
-                        size: 18), // Sağa yaslanmış ok
+                        color: Colors.black, size: 14), // Sağa yaslanmış ok
                   ],
                 ),
                 onTap: () {
@@ -435,9 +477,9 @@ class _AnaSayfaState extends State<AnaSayfa> {
                       'Çıkış Yap',
                       style: TextStyle(
                         color: Color(0xFFBE1522), // Yazı rengi mavi
-                        fontSize: 18, // Yazı boyutu 16
+                        fontSize: 16, // Yazı boyutu 16
                         fontFamily: 'Roboto', // Yazı fontu Roboto
-                        fontWeight: FontWeight.w400, // Yazı kalınlığı kalın
+                        fontWeight: FontWeight.w300, // Yazı kalınlığı kalın
                       ),
                     ), // Sağa yaslanmış ok
                   ],
